@@ -1,31 +1,25 @@
+import sys, screed.fasta, os
 import khmer
-import sys
-import screed
-import os.path
 import threading, Queue
+import gc
 
-K = 32
+K = 31                                  # use K-1 for assembly K
 HASHTABLE_SIZE=int(4e9)
-THRESHOLD=500
-N_HT=4
-WORKER_THREADS=5
+N_HT = 4
 
 ###
 
+MAX_DEGREE=4
+
+###
+
+WORKER_THREADS=8
 GROUPSIZE=100
-
-###
 
 class SequenceGroup(object):
     def __init__(self, order, seqlist):
         self.order = order
         self.seqlist = seqlist
-
-def is_pair(r1, r2):
-    a = r1['name'].split('/')[0]
-    b = r2['name'].split('/')[0]
-
-    return (a==b)
 
 def process(inq, outq, ht):
     global worker_count
@@ -39,21 +33,19 @@ def process(inq, outq, ht):
         x = []
         last_record = None
         for record in g.seqlist:
-            kmer = record['sequence'][:K]
-            size = ht.calc_connected_graph_size(kmer, THRESHOLD)
-            if size >= THRESHOLD:
-                # keep pairs together if either is "good"
-                if last_record and is_pair(last_record, record):
-                    x.append(last_record)
-                x.append(record)
-                record = None
+            name = record['name']
+            seq = record['sequence']
+            trim_seq, trim_at = ht.trim_on_degree(seq, MAX_DEGREE)
 
-            last_record = record
+            if trim_at > K:
+                x.append(record)
 
         y = [ (record['name'], record['sequence']) for record in x ]
 
         gg = SequenceGroup(g.order, y)
         outq.put(gg)
+
+        gc.collect()
 
     worker_count -= 1
 
@@ -77,31 +69,34 @@ def write(outq, outfp):
             del groups[next_group]
             next_group += 1
 
+            gc.collect()
+
+        if len(groups) > 20:
+            print 'WAITAMINIT: len(groups) is', len(groups)
+
 def main():
-    global done, worker_count
+    global ht, done, worker_count
     done = False
     worker_count = 0
     
-    infile = sys.argv[1]
-    outfile = os.path.basename(infile) + '.graphsize'
-    if len(sys.argv) == 3:
-        outfile = sys.argv[2]
+    repfile = sys.argv[1]
+    infile = sys.argv[2]
+    outprefix = sys.argv[3]
 
-    print 'input file to graphsize filter: %s' % infile
-    print 'filtering to output:', outfile
-    print '-- settings:'
-    print 'K', K
-    print 'HASHTABLE SIZE %g' % HASHTABLE_SIZE
-    print 'N HASHTABLES %d' % N_HT
-    print 'THRESHOLD', THRESHOLD
-    print 'N THREADS', WORKER_THREADS
-    print '--'
+    lowfile = outprefix + '.low'
+    highfile = outprefix + '.high'
 
-    print 'creating ht'
+    print 'saving low-density to:', lowfile
+    print 'saving high-density to:', highfile
+
+    print 'making hashtable'
     ht = khmer.new_hashbits(K, HASHTABLE_SIZE, N_HT)
-    print 'eating fa', infile
-    total_reads, n_consumed = ht.consume_fasta(infile)
-    outfp = open(outfile, 'w')
+
+    lowfp = open(lowfile, 'w')
+    #highfp = open(highfile, 'w')
+
+    print 'eating', repfile
+    ht.consume_fasta(repfile)
 
     inqueue = Queue.Queue(50)
     outqueue = Queue.Queue(50)
@@ -112,31 +107,24 @@ def main():
         worker_count += 1
         t.start()
 
-    threading.Thread(target=write, args=(outqueue, outfp)).start()
+    threading.Thread(target=write, args=(outqueue, lowfp)).start()
 
     ### main thread
     x = []
     i = 0
     group_n = 0
-    for n, record in enumerate(screed.fasta.fasta_iter(open(infile))):
+    for n, record in enumerate(screed.fasta.fasta_iter(open(infile),
+                                                       parse_description=False)):
         if n % 10000 == 0:
             print '...', n
 
         i += 1
         if i > GROUPSIZE:
-            this_name = record['name'].split('/')[0]
-            last_name = x[-1]['name'].split('/')[0]
+            x.append(record)
 
-            if is_pair(record, x[-1]):     # preserve pairs
-                x.append(record)
-
-                g = SequenceGroup(group_n, x)
-                inqueue.put(g)
-                x = []
-            else:
-                g = SequenceGroup(group_n, x)
-                inqueue.put(g)
-                x = [record]
+            g = SequenceGroup(group_n, x)
+            inqueue.put(g)
+            x = []
 
             group_n += 1
             i = 0
@@ -149,5 +137,4 @@ def main():
 
     done = True
 
-if __name__ == '__main__':
-    main()
+main()

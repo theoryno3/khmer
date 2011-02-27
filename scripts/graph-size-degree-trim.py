@@ -3,14 +3,17 @@ import sys
 import screed
 import os.path
 import threading, Queue
+import gc
 
-K = 32
+K = 31
 HASHTABLE_SIZE=int(4e9)
 THRESHOLD=500
 N_HT=4
 WORKER_THREADS=5
 
 ###
+
+MAX_DEGREE = 4
 
 GROUPSIZE=100
 
@@ -40,7 +43,7 @@ def process(inq, outq, ht):
         last_record = None
         for record in g.seqlist:
             kmer = record['sequence'][:K]
-            size = ht.calc_connected_graph_size(kmer, THRESHOLD)
+            size = ht.calc_connected_graph_size(kmer, THRESHOLD, True)
             if size >= THRESHOLD:
                 # keep pairs together if either is "good"
                 if last_record and is_pair(last_record, record):
@@ -50,7 +53,14 @@ def process(inq, outq, ht):
 
             last_record = record
 
-        y = [ (record['name'], record['sequence']) for record in x ]
+        y = []
+        for record in x:
+            name = record['name']
+            seq = record['sequence']
+#            trim_seq, trim_at = ht.trim_on_degree(seq, MAX_DEGREE)
+
+#            if trim_at > K:
+            y.append((name, seq))
 
         gg = SequenceGroup(g.order, y)
         outq.put(gg)
@@ -77,25 +87,17 @@ def write(outq, outfp):
             del groups[next_group]
             next_group += 1
 
+        gc.collect()
+
 def main():
     global done, worker_count
     done = False
     worker_count = 0
     
     infile = sys.argv[1]
-    outfile = os.path.basename(infile) + '.graphsize'
+    outfile = os.path.basename(infile) + '.graphdeg'
     if len(sys.argv) == 3:
         outfile = sys.argv[2]
-
-    print 'input file to graphsize filter: %s' % infile
-    print 'filtering to output:', outfile
-    print '-- settings:'
-    print 'K', K
-    print 'HASHTABLE SIZE %g' % HASHTABLE_SIZE
-    print 'N HASHTABLES %d' % N_HT
-    print 'THRESHOLD', THRESHOLD
-    print 'N THREADS', WORKER_THREADS
-    print '--'
 
     print 'creating ht'
     ht = khmer.new_hashbits(K, HASHTABLE_SIZE, N_HT)
