@@ -442,7 +442,8 @@ CacheManager(
     _thread_id_map( ThreadIDMap( number_of_threads ) ),
     _segment_ref_count( 0 ),
     _segment_to_fill( 0 ),
-    _fill_counter( 0 )
+    _fill_counter( 0 ),
+    _ca_spin_lock( 0 )
 {
 
     if (cache_size < number_of_threads)	throw InvalidCacheSizeRequested( );
@@ -692,12 +693,19 @@ split_at( uint64_t const pos )
 	)
     {
 	if (0 == i % 100000000)
+	{
 	    segment.trace_logger(
 		TraceLogger:: TLVL_DEBUG3,
 		"Waited to acquire copyaside buffers spinlock " \
-		"for %llu iterations.\n",
+		"for %llu iterations. [write buffer]\n",
 		(unsigned long long int)i
 	    );
+	    segment.trace_logger(
+		TraceLogger:: TLVL_DEBUG4,
+		"\tSpinlock is probably %s.\n",
+		_ca_spin_lock ? "set" : "unset"
+	    );
+	}
     }
     // Create and register copyaside buffer,
     // keyed to segment's current fill ID.
@@ -797,12 +805,19 @@ _perform_segment_maintenance( CacheSegment &segment )
 		    )
 		{
 		    if (0 == i % 100000000)
+		    {
 			segment.trace_logger(
 			    TraceLogger:: TLVL_DEBUG3,
 			    "Waited to acquire copyaside buffers spinlock " \
-			    "for %llu iterations.\n",
+			    "for %llu iterations. [read buffer]\n",
 			    (unsigned long long int)i
 			);
+			segment.trace_logger(
+			    TraceLogger:: TLVL_DEBUG4,
+			    "\tSpinlock is probably %s.\n",
+			    _ca_spin_lock ? "set" : "unset"
+			);
+		    }
 		}
 
 		// Test for existence of copyaside buffer from next fill.
@@ -1173,6 +1188,7 @@ IParser(
 	    stream_reader, number_of_threads, cache_size, trace_level
 	)
     ),
+    _number_of_threads( number_of_threads ),
     _thread_id_map( ThreadIDMap( number_of_threads ) ),
     _unithreaded( 1 == number_of_threads ),
     _states( new ParserState *[ number_of_threads ] )
@@ -1181,7 +1197,16 @@ IParser(
 
 IParser::
 ~IParser( )
-{ }
+{
+    for (uint32_t i = 0; i < _number_of_threads; ++i)
+    {
+	if (_states[ i ])
+	{
+	    delete _states[ i ];
+	    _states[ i ] = NULL;
+	}
+    }
+}
 
 
 IParser:: ParserState::
@@ -1196,12 +1221,20 @@ ParserState( uint32_t const thread_id, uint8_t const trace_level )
 	    trace_level, "parser-%lu.log", (unsigned long int)thread_id
 	)
     )
-{ memset( buffer, 0, BUFFER_SIZE + 1 ); }
+{
+    memset( buffer, 0, BUFFER_SIZE + 1 );
+    regcomp(
+	&re_read_2,
+	// ".+(/2| 2:[YN]:[[:digit:]]+:[[:alpha:]]+)$",
+	"^.+(/2| 2:[YN]:[[:digit:]]+:[[:alpha:]]+).{0}",
+	REG_EXTENDED | REG_NOSUB
+    );
+}
 
 
 IParser:: ParserState::
 ~ParserState( )
-{ }
+{ regfree( &re_read_2 ); }
 
 
 inline
@@ -1486,7 +1519,9 @@ get_next_read( )
 	// when at the beginning of a new fill.
 	skip_read =
 		at_start && (0 != fill_id)
-	    &&	((the_read.name.length( ) - 2) == the_read.name.rfind( "/2" ));
+	    &&	!regexec(
+		    &state.re_read_2, the_read.name.c_str( ), 0, NULL, 0
+		);
 	if (skip_read)
 	{
 	    trace_logger(
@@ -1559,6 +1594,9 @@ get_next_read( )
 #endif
 	break;
     } // while invalid read
+
+    if (is_complete( ) && (0 == the_read.name.length( )))
+	throw NoMoreReadsAvailable( );
 
     return the_read;
 }

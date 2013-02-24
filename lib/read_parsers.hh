@@ -7,6 +7,11 @@
 
 #include <string>
 
+extern "C"
+{
+#include <regex.h>
+}
+
 #include "zlib/zlib.h"
 #include "bzip2/bzlib.h"
 
@@ -25,6 +30,9 @@ struct InvalidStreamHandle : public std:: exception
 { };
 
 struct StreamReadError : public std:: exception
+{ };
+
+struct NoMoreReadsAvailable : public std:: exception
 { };
 
 
@@ -370,6 +378,8 @@ protected:
 	uint64_t		    buffer_pos;
 	uint64_t		    buffer_rem;
 
+	regex_t			    re_read_2;
+
 	ParserPerformanceMetrics    pmetrics;
 	TraceLogger		    trace_logger;
 	
@@ -382,6 +392,7 @@ protected:
 
     CacheManager	_cache_manager;
 
+    uint32_t		_number_of_threads;
     ThreadIDMap		_thread_id_map;
     bool		_unithreaded;
 

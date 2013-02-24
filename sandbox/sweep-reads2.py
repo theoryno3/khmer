@@ -9,10 +9,12 @@ Results end up in <search reads>.sweep2.
 Use '-h' for parameter help.
 """
 
-import sys, khmer
+import sys
+import khmer
 import os.path
 import screed
 from khmer.hashbits_args import build_construct_args, DEFAULT_MIN_HASHSIZE
+
 
 def main():
     parser = build_construct_args()
@@ -23,19 +25,24 @@ def main():
 
     if not args.quiet:
         if args.min_hashsize == DEFAULT_MIN_HASHSIZE:
-            print>>sys.stderr, "** WARNING: hashsize is default!  You absodefly want to increase this!\n** Please read the docs!"
+            print >>sys.stderr, "** WARNING: hashsize is default!  " \
+                "You absodefly want to increase this!\n** " \
+                "Please read the docs!"
 
-        print>>sys.stderr, '\nPARAMETERS:'
-        print>>sys.stderr, ' - kmer size =    %d \t\t(-k)' % args.ksize
-        print>>sys.stderr, ' - n hashes =     %d \t\t(-N)' % args.n_hashes
-        print>>sys.stderr, ' - min hashsize = %-5.2g \t(-x)' % args.min_hashsize
-        print>>sys.stderr, ''
-        print>>sys.stderr, 'Estimated memory usage is %.2g bytes (n_hashes x min_hashsize / 8)' % (args.n_hashes * args.min_hashsize / 8.)
-        print>>sys.stderr, '-'*8
+        print >>sys.stderr, '\nPARAMETERS:'
+        print >>sys.stderr, ' - kmer size =    %d \t\t(-k)' % args.ksize
+        print >>sys.stderr, ' - n hashes =     %d \t\t(-N)' % args.n_hashes
+        print >>sys.stderr, ' - min hashsize = %-5.2g \t(-x)' % \
+            args.min_hashsize
+        print >>sys.stderr, ''
+        print >>sys.stderr, 'Estimated memory usage is %.2g bytes ' \
+            '(n_hashes x min_hashsize / 8)' % (
+            args.n_hashes * args.min_hashsize / 8.)
+        print >>sys.stderr, '-' * 8
 
-    K=args.ksize
-    HT_SIZE=args.min_hashsize
-    N_HT=args.n_hashes
+    K = args.ksize
+    HT_SIZE = args.min_hashsize
+    N_HT = args.n_hashes
 
     inp = args.input_filename
     readsfile = args.read_filename
@@ -55,6 +62,9 @@ def main():
     n = 0
     m = 0
     for record in screed.open(readsfile):
+        if len(record.sequence) < K:
+            continue
+
         if n % 10000 == 0:
             print '...', n, m
 
@@ -66,3 +76,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+# vim: set ft=python ts=4 sts=4 sw=4 et tw=79:
