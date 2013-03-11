@@ -15,7 +15,7 @@ def main(inp_name, outp_name, min_seq_len):
             continue
         
         kt = khmer.new_ktable(KSIZE)
-        kt.consume(record.sequence)
+        kt.consume(record.sequence[:min_seq_len])
 
         x = []
         for i in range(4**KSIZE):
