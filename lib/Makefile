@@ -3,8 +3,8 @@ NO_UNIQUE_RC=0
 CXXFLAGS+= -DNO_UNIQUE_RC=$(NO_UNIQUE_RC)
 
 # comment out whichever is appropriate.  can probably make this automatic ;)
-SO_EXT=.so
-#DYLIB_EXT=.dylib
+#SO_EXT=.so
+DYLIB_EXT=.dylib
 Z_LIB_DIR=zlib-1.2.3
 Z_LIB_FILES=$(Z_LIB_DIR)/*.o
 
