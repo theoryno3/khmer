@@ -7,7 +7,7 @@ DYLIB_EXT=.dylib
 Z_LIB_DIR=zlib-1.2.3
 Z_LIB_FILES=$(Z_LIB_DIR)/*.o
 
-all: zlib parsers.o ktable.o hashtable.o hashbits.o subset.o counting.o indexClassify.o
+all: zlib parsers.o ktable.o hashtable.o hashbits.o subset.o counting.o indexClassify.o indexClassifyTest
 
 clean:
 	rm -f *.o $(Z_LIB_DIR)/*.o $(Z_LIB_DIR)/libz$(SO_EXT).1.2.3$(DYLIB_EXT)
@@ -18,6 +18,9 @@ zlib: $(Z_LIB_DIR)/libz$(SO_EXT).1.2.3$(DYLIB_EXT)
 
 $(Z_LIB_DIR)/libz$(SO_EXT).1.2.3$(DYLIB_EXT):
 	cd $(Z_LIB_DIR); ./configure --shared; make; rm minigzip.o; rm example.o
+
+indexClassifyTest: indexClassifyTest.cc indexClassify.o ktable.o hashtable.o parsers.o hashbits.o counting.o subset.o $(Z_LIB_FILES)
+	g++ -o indexClassifyTest -fPIC indexClassifyTest.cc indexClassify.o ktable.o hashtable.o parsers.o hashbits.o counting.o subset.o $(Z_LIB_FILES)
 
 parsetest: parsers.o 
 	$(CXX) -o parsers parsers.o $(Z_LIB_FILES)

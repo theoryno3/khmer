@@ -11,7 +11,7 @@
 #include "ktable.hh"
 #include "khmer.hh"
 #include "hashbits.hh"
-#include "minilib.hh"
+#include "indexClassify.hh"
 
 using namespace std;
 
