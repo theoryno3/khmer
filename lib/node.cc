@@ -24,6 +24,9 @@ double weight_nonerror(unsigned int kCov, double lambOne, double lambTwo) {
 }
 
 bool isCorrectKmer(unsigned int kCov, double lambOne, double lambTwo) {
+  if (kCov > 2) { return true; }
+  return false;
+
    if (lambOne == 0.0 && lambTwo == 0.0) {
       return (kCov > 0);
    }
