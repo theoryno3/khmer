@@ -1,6 +1,8 @@
 import khmer
 
 def test_alignnocov():
+   # test read alignment in situation where there is no match.
+   
    ch = khmer.new_counting_hash(10, 1048576, 1)
    read = "ACCTAGGTTCGACATGTACC"
    aligner = khmer.new_readaligner(ch)
@@ -15,6 +17,8 @@ def test_alignnocov():
 
 
 def test_readalign():
+   # test a clear example of an alignment
+   
    ch = khmer.new_counting_hash(10, 1048576, 1)
    aligner = khmer.new_readaligner(ch, 1, 20)
    for i in range(20):
@@ -33,6 +37,8 @@ def test_readalign():
    #                                   ^  ^
 
 def test_alignerrorregion():
+   # test a situation where is no good alignment.
+   
    ch = khmer.new_counting_hash(10, 1048576, 1)
    read = "AAAAAGTTCGAAAAAGGCACG"
    aligner = khmer.new_readaligner(ch, 1, 20, 11)
