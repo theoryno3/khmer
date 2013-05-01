@@ -100,8 +100,8 @@ def main():
                     assert not keep
                     
             if keep:
-                ht.consume(seq)
-                outfp.write('>%s\n%s\n' % (record.name, seq))
+                ht.consume(record.sequence)
+                outfp.write('>%s\n%s\n' % (record.name, record.sequence))
             else:
                 discarded += 1
 
@@ -113,6 +113,15 @@ def main():
         print 'Saving hashfile through', input_filename
         print '...saving to', args.savehash
         ht.save(args.savehash)
+
+
+    print 'XXX', ht.get('GCTTGGAGTTTGTTCACATT')
+    print 'YYY', ht.get('GCTTGGAGTTTGTTCACATG')
+    #                                        ^
+
+    #print 'XXX', ht.get('GCCTGAGGGTGTACACGGAG')
+    #print 'YYY', ht.get('GCCTGAGGGTCTACACGGAG')
+    #                                ^
 
     # Change 0.2 only if you really grok it.  HINT: You don't.
     fp_rate = khmer.calc_expected_collisions(ht)
